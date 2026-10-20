@@ -8,6 +8,8 @@ module spi(
     input wire [7:0] tx_data,
     input wire miso_data,
     input wire cs,
+    input wire CPOL,
+    input wire CPHA,
 
     output wire cs_n,
     output reg mosi,
@@ -22,6 +24,7 @@ module spi(
     reg [2:0] bit_count = 0;
     reg [10:0] byte_count = 0;
     reg next_byte_pending;
+    reg[7:0] rx_temp;
 
     wire edge_tick;
     wire leading_tick;
@@ -29,9 +32,7 @@ module spi(
     wire sample_tick;
     wire change_tick;
 
-    parameter CPOL = 0;
-    parameter CPHA = 0;
-    parameter TOTAL_BYTES = 10;
+    parameter TOTAL_BYTES = 10; //Total bytes for tcl console to display
 
     //spi clock generation
     always @(posedge clk_50MHZ) begin
@@ -69,6 +70,7 @@ module spi(
             byte_count <= 11'b0;
             next_byte_pending <= 1'b0;
             rx_data <= 8'b0;
+            rx_temp <= 8'b0;
             busy <= 1'b0;
             done <= 1'b0;
         end
@@ -82,14 +84,16 @@ module spi(
 
             busy <= 1'b1;
             done <= 1'b0;
+            rx_temp <= 8'b0;
         end
         else if (edge_tick && busy) begin
 
             if (sample_tick) begin
-                rx_data <= {rx_data[6:0], miso_data};
+                rx_temp <= {rx_temp[6:0], miso_data};
 
                 if (bit_count == 3'b111) begin
                     bit_count <= 3'b000;
+                    rx_data <= {rx_temp[6:0], miso_data};
 
                     if (byte_count == TOTAL_BYTES - 1) begin
                         byte_count <= byte_count + 1'b1;
